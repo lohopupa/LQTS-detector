@@ -1,0 +1,19 @@
+body {
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
+}
+
+.canvas-container {
+    width: 100%;
+    height: 95vh;
+}
+
+.buttons-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    /* min-height: max-content; */
+}
