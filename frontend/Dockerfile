@@ -2,10 +2,8 @@ FROM python:alpine
 
 WORKDIR /app
 
-ARG EXPOSE_PORT=3000
+COPY . /app
 
-COPY ./scr ./src
+EXPOSE 3000
 
-EXPOSE ${EXPOSE_PORT}
-
-CMD ["python", "-m", "http.server", ${EXPOSE_PORT}]
+CMD ["python3", "-m", "http.server", "3000", "--directory", "./src/"]

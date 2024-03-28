@@ -6,7 +6,7 @@ body {
 
 .canvas-container {
     width: 100%;
-    height: 95vh;
+    height: 90vh;
 }
 
 .buttons-container {
@@ -16,4 +16,15 @@ body {
     justify-content: center;
     gap: 10px;
     /* min-height: max-content; */
+}
+
+.drag-n-drop{
+    /* display: block; */
+    left: 0;
+    right: 0;
+    position: absolute;
+    width: 99vw;
+    height: 99vh;
+    pointer-events: none;
+    z-index: 10;
 }

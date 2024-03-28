@@ -1,5 +1,6 @@
 canvas_container = document.getElementById("canvas-container")
 canvas = document.getElementById("canvas")
+label = document.getElementById("predicted-label")
 ctx = canvas.getContext("2d")
 
 window.addEventListener("resize", onResize)
@@ -7,7 +8,20 @@ window.addEventListener("resize", onResize)
 function onResize(){
     canvas.width = canvas_container.clientWidth
     canvas.height = canvas_container.clientHeight
+    draw()
 }
+
+const constructPath = (endpoint, args) => {
+    let path = `${window.location.protocol}//${window.location.host}/api/${endpoint}`;
+    // let path = `http://localhost:5000/api/${endpoint}`;
+    if (args)
+      path +=
+        "?" +
+        Object.entries(args)
+          .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+          .join("&");
+    return path;
+  };
 
 const [dt, updateDt] = (() => {
     let prevTime = 0;
@@ -66,37 +80,63 @@ function draw(time){
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     drawGrid(0, 0, 0)
     drawECG()
-    if(drawing) window.requestAnimationFrame(draw)
+    // if(drawing) window.requestAnimationFrame(draw)
 }
 
 function normalize(min, max, v){
     return (v - min)/(max - min)
 }
 
-window.onload = ()=>{
-    fetch("xTest_0.csv").then((file)=>{
-        file.text().then(text => {
-            rows = text.trim().split("\n").map((row) => row.split(","))
-            header = rows.splice(0, 1)
-            ecg = new Array(12).fill().map(() => []);
-            tecg = new Array(12).fill().map(() => []);
-            rows.forEach((row) => {
-                row.forEach((col, idx) => {
-                    tecg[idx].push(Number(col))
-                })
+const handleFile = (file) => {
+    file.text().then(text => {
+        rows = text.trim().split("\n").map((row) => row.split(","))
+        header = rows.splice(0, 1)
+        ecg = new Array(12).fill().map(() => []);
+        tecg = new Array(12).fill().map(() => []);
+        rows.forEach((row) => {
+            row.forEach((col, idx) => {
+                tecg[idx].push(Number(col))
             })
-            tecg.forEach((col, i) => {
-                let min = col[0]
-                let max = col[0]
-                col.forEach(v => {
-                    min = Math.min(min, v)
-                    max = Math.max(max, v)
-                })
-                ecg[i] = col.map(v => 1 - normalize(min, max, v))
-            })
-            console.log(ecg)
         })
+        tecg.forEach((col, i) => {
+            let min = col[0]
+            let max = col[0]
+            col.forEach(v => {
+                min = Math.min(min, v)
+                max = Math.max(max, v)
+            })
+            ecg[i] = col.map(v => 1 - normalize(min, max, v))
+        })
+        console.log(ecg)
+        draw()
     })
 }
 
-draw()
+
+const inputElement = document.getElementById("load-file");
+function onLoad() {
+    const file = this.files[0]
+    label.textContent = "Loading..."
+    handleFile(file)
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch(constructPath("file_query"), {
+        method: 'POST',
+        body: formData
+    }).then((response) => {
+        response.json().then((r) => {
+            if(r["result"]){
+                label.textContent = "Predicted label: " + r["result"] 
+                // console.log("RESPONSE: ", r)
+            }else if(r["error"]) {
+                label.textContent = "Error: " + r["error"] 
+            }
+        })
+    }).catch(
+        error => {
+            label.textContent = "Something went wrong"
+            console.log(error)
+        }
+    );
+}
+inputElement.addEventListener("change", onLoad, false);
