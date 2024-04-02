@@ -4,6 +4,8 @@ services:
       context: frontend
       args:
         - PORT=3000
+    volumes:
+      - ./frontend/src:/app/src
     depends_on:
       - backend
     networks:
@@ -14,6 +16,8 @@ services:
       context: backend
       args:
         - PORT=5000
+    volumes:
+      - ./backend/src:/app/src
     networks:
       - local
 
