@@ -19,7 +19,7 @@ async def file_query(file: UploadFile = File(...)):
         data = np.expand_dims(ds.values, axis=0)
         result = model.predict(data)
         
-        return {"result": "TRUE" if result == 1 else "FALSE"}
+        return {"result": "QT интервал в норме" if result == 1 else "Обнаружен синдром удлиненного QT"}
     except Exception as e:
         print(e)
-        return {"error": "Something went wrong!"}
+        return {"error": "Что-то пошло не так!"}
