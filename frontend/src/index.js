@@ -13,7 +13,6 @@ function onResize(){
 
 const constructPath = (endpoint, args) => {
     let path = `${window.location.protocol}//${window.location.host}/api/${endpoint}`;
-    // let path = `http://localhost:5000/api/${endpoint}`;
     if (args)
       path +=
         "?" +
@@ -126,15 +125,15 @@ function onLoad() {
     }).then((response) => {
         response.json().then((r) => {
             if(r["result"]){
-                label.textContent = "Predicted label: " + r["result"] 
+                label.textContent = "Результат: " + r["result"] 
                 // console.log("RESPONSE: ", r)
             }else if(r["error"]) {
-                label.textContent = "Error: " + r["error"] 
+                label.textContent = "Ошибка: " + r["error"] 
             }
         })
     }).catch(
         error => {
-            label.textContent = "Something went wrong"
+            label.textContent = "Что-то пошло не так!"
             console.log(error)
         }
     );
