@@ -4,6 +4,16 @@ body {
     flex-direction: column;
 }
 
+.results {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.results h3 {
+    margin: 0%;
+}
+
 .canvas-container {
     width: 100%;
     height: 90vh;

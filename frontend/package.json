@@ -1,0 +1,18 @@
+{
+  "name": "lqts-detector",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server ./public -p 3000",
+    "build": "tsc",
+    "dev": "concurrently \"tsc --watch\" \"http-server ./public -p 3000\""
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "http-server": "^14.1.1",
+    "typescript": "^5.6.2"
+  }
+}

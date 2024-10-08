@@ -1,9 +1,16 @@
-FROM python:alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
-COPY . /app
+COPY package.json ./
+
+COPY tsconfig.json ./
+
+RUN npm install
+
+COPY ./src ./src
+COPY ./public ./public
 
 EXPOSE 3000
 
-CMD ["python3", "-m", "http.server", "3000", "--directory", "./src/"]
+CMD ["npm", "run", "dev"]

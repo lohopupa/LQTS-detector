@@ -1,21 +1,16 @@
 services:
   frontend:
-    build:
-      context: frontend
-      args:
-        - PORT=3000
+    build: frontend
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     depends_on:
       - backend
-    networks:
-      - local
 
   backend:    
-    build:
-      context: backend
-      args:
-        - PORT=5000
-    networks:
-      - local
+    build: backend
+    volumes:
+      - ./backend/src:/app/src
 
   proxy:
     build: proxy
@@ -25,15 +20,3 @@ services:
     depends_on: 
       - frontend
       - backend
-    links: 
-      - frontend
-      - backend
-    networks:
-      - local
-
-volumes:
-  db:
-    driver: local
-
-networks:
-  local: {}
