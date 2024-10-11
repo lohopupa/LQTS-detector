@@ -2,6 +2,7 @@ import csv
 import math
 import numpy as np
 import random as rd
+import scipy.signal as signal
 import os
 
 def parse_name(name):
@@ -50,46 +51,83 @@ def exponential_filter(data):
         sdata.append(smoothed_value)
     return sdata
 
-def get_R_peaks(timeECG, waveData, threshold_ratio=0.7):
-    assert len(timeECG) == len(waveData), "data and time should be the same length"
-    
-    interval = max(waveData) - min(waveData)
-    threshold = threshold_ratio*interval + min(waveData)
+def get_R_peaks(waveData, threshold_ratio=0.6):
+    # return detect_r_peaks(waveData, samplerate)
+    svel = [i[1] - i[0] for i in zip(waveData[1:], waveData[:-1])]
+    vel = [abs(v) for v in svel] 
+    amp = max(vel) - min(vel)
+    threshold = threshold_ratio * amp + min(vel)
+    # mxs = []
+
+    # for i in range(len(vel)):
     maxima = []
     maxima_indices = []
     mxs_indices = []
     banner = False
     
-    for i in range(0, len(waveData)):
+    for i in range(0, len(vel)):
             
-        if waveData[i] >= threshold:
+        if vel[i] >= threshold:
             banner = True
             maxima_indices.append(i)
-            maxima.append(waveData[i])
+            maxima.append(vel[i])
             
-        elif banner == True and waveData[i] < threshold:
+        elif banner == True and vel[i] < threshold:
             index_local_max = maxima.index(max(maxima))
             mxs_indices.append(maxima_indices[index_local_max])
             maxima = []
             maxima_indices = []
             banner = False     
 
-    return mxs_indices
+    t = 50
+    mm = []
+    for m in mxs_indices:
+        if len(mm) == 0:
+            mm.append(m)
+        else:
+            if m - mm[-1] < t:
+                pass
+            else:
+                mm.append(m)
+    r = 30
+    sign = svel[mm[0]] < 0
+    for i in range(len(mm)):
+        start = max(mm[i] - r, 0)
+        end = min(mm[i] + r, len(waveData))
+        sl = waveData[start:end]
+        if(len(sl) == 0):
+            continue
+        if sign:
+            v = max(sl)
+            if v > threshold:
+                mm[i] = sl.index(v) + start
+            else:
+                mm[i] = None
+        else:
+            v = min(sl)
+            if v < threshold:
+                mm[i] = sl.index(v) + start
+            else:
+                mm[i] = None
+    mm = list(filter(lambda x: x is not None, mm))
+    return mm, sign
+    # return mxs_indices
 
-def get_QS_complex(data, r_peaks):
+def get_QS_complex(data, r_peaks, sign):
     qs = []
     ss = []
-    T = 40
+    T = 25
+    f = min if sign else max
     for R_peak_i in r_peaks:
         left_interval = data[R_peak_i-T:R_peak_i]
         right_interval = data[R_peak_i:R_peak_i+T]
         if len(left_interval) > 0 and len(right_interval) >  0:
-            qs.append(R_peak_i - T + (list(left_interval).index(min(left_interval))) )
-            ss.append(R_peak_i + (list(right_interval).index(min(right_interval))) )
+            qs.append(R_peak_i - T + (list(left_interval).index(f(left_interval))) )
+            ss.append(R_peak_i + (list(right_interval).index(f(right_interval))) )
     return qs, ss
 
 def get_T_complex(data, time_data, r_peaks, s_peaks):
-    nn = 100
+    nn = 70
     t_wave_begin = []
     interval_der = 50
     time_derivative_vec = []
@@ -109,6 +147,8 @@ def get_T_complex(data, time_data, r_peaks, s_peaks):
 
     nn = 100
     t_wave_end = []
+
+    rt = {}
     interval_der = 200
     time_derivative_vec = [0]
     for mxs_i in range(0, len(r_peaks)):
@@ -120,33 +160,37 @@ def get_T_complex(data, time_data, r_peaks, s_peaks):
                 time_derivative_vec.append(aux) 
 
                 if time_derivative_vec[i] > 0 and time_derivative_vec[i-1] < 0: 
+                    rt[mxs_i] = index
                     t_wave_end.append(index)
                     break
             except:
                 continue
-    return t_wave_begin, t_wave_end
+    return t_wave_begin, t_wave_end, rt
 
 def avg(arr):
         return [math.floor(sum(i)/len(i)) for i in zip(*arr)]
 
 
 def get_peaks(data):
-    data = filter_data(data, exponential_filter)
     time_data = get_time(data)
 
     rss = []
     qss = []
     tss = []
-    leafs = [0, 1, 5, 9, 10, 11]
     for id, leaf in enumerate(data):
-        rs = get_R_peaks(time_data, leaf)
-        qs, ss = get_QS_complex(leaf, rs)
-        _, ts = get_T_complex(leaf, time_data, rs, ss)
-        if id in leafs:
-            rss.append(rs)
-            qss.append(qs)
-            tss.append(ts)
-    
+        rs, s  = get_R_peaks(leaf)
+        qs, ss = get_QS_complex(leaf, rs, s)
+        _, _, rts = get_T_complex(leaf, time_data, rs, ss)
+
+        rss.append([rs[i] for i in rts.keys()])
+        qss.append([qs[i] for i in rts.keys()])
+        tss.append(rts.values())
+
+    ml = max(list(map(len, rss)))
+    rss = [i for i in rss if len(i) == ml]
+    qss = [i for i in qss if len(i) == ml]
+    tss = [i for i in tss if len(i) == ml]
+
     srs = avg(rss)
     sqs = avg(qss)
     sts = avg(tss)
@@ -161,3 +205,60 @@ def qtc_friderici(qt, rr):
 def qtc_saige(qt, rr):
     return qt + (.154 * (1 - rr/1000)) * 1000
 
+
+
+def thresholding_algo(y, lag, threshold, influence):
+    signals = np.zeros(len(y))
+    filteredY = np.array(y)
+    avgFilter = [0]*len(y)
+    stdFilter = [0]*len(y)
+    avgFilter[lag - 1] = np.mean(y[0:lag])
+    stdFilter[lag - 1] = np.std(y[0:lag])
+    peaks_x = []
+
+    for i in range(lag, len(y)):
+        if abs(y[i] - avgFilter[i-1]) > threshold * stdFilter[i-1]:
+            if y[i] > avgFilter[i-1]:
+                signals[i] = 1
+            else:
+                signals[i] = -1
+
+            peaks_x.append(i)
+            filteredY[i] = influence * y[i] + (1 - influence) * filteredY[i-1]
+            avgFilter[i] = np.mean(filteredY[(i-lag+1):i+1])
+            stdFilter[i] = np.std(filteredY[(i-lag+1):i+1])
+        else:
+            signals[i] = 0
+            filteredY[i] = y[i]
+            avgFilter[i] = np.mean(filteredY[(i-lag+1):i+1])
+            stdFilter[i] = np.std(filteredY[(i-lag+1):i+1])
+
+    return peaks_x
+
+def detect_r_peaks(ecg_signal, sampling_rate):
+    # Bandpass filter the ECG signal
+    lowcut = 5.0
+    highcut = 15.0
+    nyquist = 0.5 * sampling_rate
+    low = lowcut / nyquist
+    high = highcut / nyquist
+    b, a = signal.butter(1, [low, high], btype="band")
+    filtered_ecg = signal.filtfilt(b, a, ecg_signal)
+
+    # Differentiation
+    diff_ecg = np.diff(filtered_ecg)
+
+    # Squaring
+    squared_ecg = diff_ecg ** 2
+
+    # Moving window integration
+    window_size = int(0.12 * sampling_rate)
+    integrated_ecg = np.convolve(squared_ecg, np.ones(window_size) / window_size, mode="same")
+
+    # Peak detection
+    peaks, _ = signal.find_peaks(integrated_ecg, distance=sampling_rate / 2.5, height=np.mean(integrated_ecg))
+    
+    return peaks
+
+def estimate_sampling_rate(time_vector):
+        return 1 / np.mean(np.diff(time_vector))

@@ -18,14 +18,16 @@ async def file_query(file: UploadFile = File(...)):
     content = await file.read()
     try:
         ds = pd.read_csv(BytesIO(content))
-        srs, sqs, sts = ecg.get_peaks(ds.T.values)
+        data = ds.T.values.tolist()
+        data = ecg.filter_data(data, ecg.exponential_filter)
+        srs, sqs, sts = ecg.get_peaks(data)
         if len(srs) == 0:
             return {
                 "error": "Не получилось выделить R пики",
             }
 
-        result = predict_split(ds)
-        # text_result =  "QT интервал в норме" if result == 1 else "Обнаружен синдром удлиненного QT"
+        result = predict_split(data)
+
         text_result = "QT интервал в норме"
         if result == 0:
             text_result = "Обнаружен синдром удлиненного QT"
@@ -52,12 +54,23 @@ async def file_query(file: UploadFile = File(...)):
             rr = "Ошибка при вычислении"
             qtc = "Ошибка при вычислении"
             
+        rss = []
+        qss = []
+        tss = []
+        time_data = ecg.get_time(data)
+        for id, leaf in enumerate(data):
+            rs, s = ecg.get_R_peaks(leaf)
+            qs, ss = ecg.get_QS_complex(leaf, rs, s)
+            _, ts, _ = ecg.get_T_complex(leaf, time_data, rs, ss)
+            rss.append(rs)
+            qss.append(qs)
+            tss.append(ts)
 
         return {
             "result": text_result,
-            "qs": sqs,
-            "rs": srs,
-            "ts": sts,
+            "qs": qss,
+            "rs": rss,
+            "ts": tss,
             "qt": qt,
             "rr": rr,
             "qtc": qtc
@@ -67,15 +80,16 @@ async def file_query(file: UploadFile = File(...)):
         return {"error": "Что-то пошло не так!"}
     
 
-def predict_split(ds):
-    data = ds.T.values
+
+def predict_split(data):
     time_data = ecg.get_time(data)
     rrs = []
-    rs = ecg.get_R_peaks(time_data, data[0])
+    rs, s = ecg.get_R_peaks(data[0])
     for id, leaf in enumerate(data):
-        qs, ss = ecg.get_QS_complex(leaf, rs)
-        _, ts = ecg.get_T_complex(leaf, time_data, rs, ss)
-        qts = zip(qs, ts)
+        qs, ss = ecg.get_QS_complex(leaf, rs, s)
+        _, _, rts = ecg.get_T_complex(leaf, time_data, rs, ss)
+        qts = [(ss[r], t) for r, t in rts.items()]
+        # qts = zip(qs, ts)
 
         LENGTH = 512
 

@@ -6,6 +6,7 @@ const qtLabel = document.getElementById("qt") as HTMLElement;
 const rrLabel = document.getElementById("rr") as HTMLElement;
 const qtcLabel = document.getElementById("qtc") as HTMLElement;
 
+const leafsLabels = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 
 window.addEventListener("resize", onResize);
 
@@ -15,6 +16,13 @@ function onResize() {
     draw();
 }
 
+function drawVLineWithLabel(x: number, y: number, height: number, text: string) {
+    drawLine(x, y, x, y + height)
+    ctx.fillStyle = "#000000";
+    ctx.font = "20px serif"
+    ctx.fillText(text, x + 5, y + 20)
+}
+
 function drawLine(x1: number, y1: number, x2: number, y2: number) {
     ctx.beginPath();
     ctx.moveTo(x1, y1);
@@ -22,7 +30,7 @@ function drawLine(x1: number, y1: number, x2: number, y2: number) {
     ctx.stroke();
 }
 
-function setLabels(res: string, qt?: string, rr?: string, qtc?: string){
+function setLabels(res: string, qt?: string, rr?: string, qtc?: string) {
     label.textContent = res;
     qtLabel.textContent = "QT: " + (qt ?? "")
     rrLabel.textContent = "RR: " + (rr ?? "")
@@ -48,38 +56,51 @@ function drawGrid() {
 
 let ecg: number[][] | undefined = undefined;
 
-let rs: number[] = []
-let qs: number[] = []
-let ts: number[] = []
+let rss: number[][] = []
+let qss: number[][] = []
+let tss: number[][] = []
 
-function drawPeaks(){
+function drawPeaks() {
     ctx.lineWidth = 2
     ctx.strokeStyle = "magenta"
-    for(const r of rs){
-        drawLine(r, 0, r, canvas.height)
+    const rowHeight = canvas.height / rss.length;
+    for (let i = 0; i < rss.length; i++) {
+        const rs = rss[i]
+        for (const r of rs) {
+            drawVLineWithLabel(r, rowHeight * i, rowHeight, "R")
+        }
     }
     ctx.strokeStyle = "blue"
-    for(const q of qs){
-        drawLine(q, 0, q, canvas.height)
+    for (let i = 0; i < qss.length; i++) {
+        const qs = qss[i]
+        for (const q of qs) {
+            drawVLineWithLabel(q, rowHeight * i, rowHeight, "Q")
+        }
     }
     ctx.strokeStyle = "green"
-    for(const t of ts){
-        drawLine(t, 0, t, canvas.height)
+    for (let i = 0; i < qss.length; i++) {
+        const ts = tss[i]
+        for (const t of ts) {
+            drawVLineWithLabel(t, rowHeight * i, rowHeight, "T")
+        }
     }
 }
 
 function drawECG() {
-    if (ecg === undefined) return;
+    if (ecg == undefined) return;
     ctx.strokeStyle = "#000000";
+    ctx.fillStyle = "#000000";
+    ctx.font = "20px serif"
     ctx.lineWidth = 2;
 
     const rowHeight = canvas.height / ecg.length;
     for (let row = 0; row < ecg.length; row += 1) {
+        ctx.fillText(leafsLabels[row], 20, rowHeight * row + 20)
         for (let x = 1; x < ecg[row].length; x += 1) {
             drawLine(
-                (x - 1) * 1,
+                (x - 1),
                 ecg[row][x - 1] * rowHeight + rowHeight * row,
-                x * 1,
+                x,
                 ecg[row][x] * rowHeight + rowHeight * row
             );
         }
@@ -102,21 +123,25 @@ function normalize(min: number, max: number, v: number): number {
 }
 
 const handleFile = (file: File) => {
+    rss = []
+    qss = []
+    tss = []
     file.text().then(text => {
         const rows = text.trim().split("\n").map(row => row.split(",").map(Number));
         rows.shift(); // remove header
-
+        // ecg = rows;
         ecg = new Array(12).fill(0).map(() => []);
         const tempECG: number[][] = new Array(12).fill(0).map(() => []);
 
         rows.forEach(row => {
             row.forEach((col, idx) => {
-                tempECG[idx].push(col);
+                tempECG![idx].push(col);
             });
         });
 
         tempECG.forEach((col, i) => {
             const min = Math.min(...col);
+
             const max = Math.max(...col);
             ecg![i] = col.map(v => 1 - normalize(min, max, v));
         });
@@ -130,9 +155,9 @@ const inputElement = document.getElementById("load-file") as HTMLInputElement;
 type Result = {
     result?: string
     error?: string
-    qs: number[]
-    ts: number[]
-    rs: number[]
+    qs: number[][]
+    ts: number[][]
+    rs: number[][]
     qt: string
     rr: string
     qtc: string
@@ -161,14 +186,14 @@ async function imageOnLoad() {
 
     if (res.result) {
         setLabels("Результат: " + res.result, res.qt, res.rr, res.qtc)
-        rs = res.rs
-        qs = res.qs
-        ts = res.ts
+        rss = res.rs
+        qss = res.qs
+        tss = res.ts
     } else if (res.error) {
         setLabels("Ошибка: " + res.error)
-        rs = []; 
-        qs = []; 
-        ts = []; 
+        rss = [];
+        qss = [];
+        tss = [];
     }
     draw()
 }
