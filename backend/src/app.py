@@ -19,7 +19,7 @@ async def file_query(file: UploadFile = File(...)):
     try:
         ds = pd.read_csv(BytesIO(content))
         data = ds.T.values.tolist()
-        data = ecg.filter_data(data, ecg.exponential_filter)
+        # data = ecg.filter_data(data, ecg.exponential_filter)
         srs, sqs, sts = ecg.get_peaks(data)
         if len(srs) == 0:
             return {
